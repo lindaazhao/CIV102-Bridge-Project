@@ -35,6 +35,8 @@ TauU = 4;
 TauG = 2;
 mu = 0.2;
 
+%% HELLO WORLD
+
 function [ SFD_PL, BMD_PL, total_loads ] = ApplyPL( xP, P, x, total_loads )
 % Constructs load vector from application of total point loads, then SFD & BMD from total loads.
 % Assumes fixed location of supports.
