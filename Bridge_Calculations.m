@@ -36,7 +36,7 @@ TauG = 2;
 mu = 0.2;
 
 function [ SFD_PL, BMD_PL, total_loads ] = ApplyPL( xP, P, x, total_loads )
-% Constructs load vector from application of one point load, then SFD & BMD from total loads.
+% Constructs load vector from application of total point loads, then SFD & BMD from total loads.
 % Assumes fixed location of supports.
 % Input: location and magnitude of point load. The previous load vector can be entered as input to 
 % construct the load vector of multiple point loads.
@@ -48,7 +48,7 @@ P_A = total_loads(1) -P - cur_P_B; % Overall P_A
 P_B = cur_P_B + total_loads(xP_B+1) - total_loads(xP_B); % Overall P_B
 
 total_loads(1) = P_A;
-total_loads(xP) = P;
+total_loads(xP+1) = P;
 total_loads(xP_B+1) = P_B;
 
 % Constructs SFD, BMD from all point loads applied.
@@ -59,4 +59,8 @@ SFD_PL(1) = total_loads(1);
         SFD_PL(i) = total_loads(i) + SFD_PL(i-1);
     end
     BMD_PL = cumsum(SFD_PL);
+end
+
+function [ ] = VisualizeBridge( {Geometric Inputs} )
+% Optional. Provides a graphical interpretation of user geometric inputs
 end
