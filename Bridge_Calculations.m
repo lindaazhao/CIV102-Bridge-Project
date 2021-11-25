@@ -103,25 +103,34 @@ x = linspace(0, L, n); % Is this necessary?
 % tfb = interp1(xc, tfb, x); % Linearly interpolate remaining points over x
 % bfb = interp1(xc, bfb, x);
 wh = interp1(xc, wh, x);
+ovheight = tft + wh + bft;
 
-% Initialize A, y
-tfa = zeros(1, n);
+% Initialize A, y, I
+tfa = zeros(1, n); % Might have to be (n, 1)?
 bfa = zeros(1, n);
 wa = zeros(1, n);
 tfy = zeros(1, n);
 bfy = zeros(1, n);
-wy = zeros(1, n); 
+wy = zeros(1, n);
+tfi = zeros(1, n);
 
 for i = 1:length(xc)
     % Areas, A
     tfa(i) = tfb(i) * tft(i); % Assumes all values have been interpolated already
     bfa(i) = bfb(i) * bft(i); % If thickness remains constant, use # instead of vector
-    wa(i) = wh(i) * wt(i);
+    wa(i) = 2 * wh(i) * wt(i); % Assumes 2 webs
+    
     % Local centroids, y
-    tfy(i) = total_height - tft(i) / 2;
+    tfy(i) = ovheight - tft(i) / 2;
     bfy = bft(i) / 2;
     wy(i) = wh(i)/2 + bft(i);
+    
     % I naught, I_0
+    tfi(i) = (tfw(i) * (tft(i) ^ 3)) / 12;
+    bfi(i) = (bfw(i) * (bft(i) ^ 3)) / 12;
+    wi(i) = 2 * (wt(i) * (wh(i) ^ 3)) / 12;
+
 end
-ybar = (tfa*tfw' + bfa*bfy' + wa*wy') / (tfa + bfa + wa); % This is probably wrong
+ybar = (tfa*tfw + bfa*bfy + wa*wy) / (tfa + bfa + wa);
+I = 0;
 end
