@@ -52,7 +52,6 @@ wt = [1.27 1.27 1.27]; % Web Thickness (Assuming 2 separate webs)
 bfb = [80 80 80]; % Bottom Flange Width
 bft = [1.27 1.27 1.27]; % Bottom Flange Thickness
 a = [400 400 400]; % Diaphragm Spacing
-total_height = tft + wh + bft;
 
 % Optional but you need to ensure that your geometric inputs are correctly implemented
 % VisualizeBridge( {CrossSectionInputs} ); 
@@ -95,21 +94,29 @@ SFD_PL(1) = total_loads(1);
     BMD_PL = cumsum(SFD_PL);
 end
 
-function [ ybar, I, Q ] = SectionProperties ( )
+function [ ybar, I, Q ] = SectionProperties ( xc, tfb, tft, wh, wt, bfb, bft, a )
 % Calculates important sectional properties for left half . Including but not limited to ybar, I, Q, etc.
 % Input: Geometric Inputs. Format will depend on user
 % Output: Sectional Properties at every value of x. Each property is a 1-D array of length n
-tfa = zeros(1, 1251);
-bfa = zeros(1, 1251);
-wa = zeros(1, 1251);
-tfy = zeros(1, 1251);
-wy = zeros(1, 1251); 
+n = 1251;
+x = linspace(0, L, n); % Is this necessary?
+% tfb = interp1(xc, tfb, x); % Linearly interpolate remaining points over x
+% bfb = interp1(xc, bfb, x);
+wh = interp1(xc, wh, x);
+
+% Initialize A, y
+tfa = zeros(1, n);
+bfa = zeros(1, n);
+wa = zeros(1, n);
+tfy = zeros(1, n);
+bfy = zeros(1, n);
+wy = zeros(1, n); 
 
 for i = 1:length(xc)
     % Areas, A
-    tfa(i) = bft(i) * tft(i); % Assumes all values have been interpolated already
-    bfa(i) = bfb(i) * tfb(i);
-    wa(i) = 0;
+    tfa(i) = tfb(i) * tft(i); % Assumes all values have been interpolated already
+    bfa(i) = bfb(i) * bft(i); % If thickness remains constant, use # instead of vector
+    wa(i) = wh(i) * wt(i);
     % Local centroids, y
     tfy(i) = total_height - tft(i) / 2;
     bfy = bft(i) / 2;
