@@ -8,35 +8,35 @@ P = -500; % Change this variable
 [SFD_PL, BMD_PL, total_loads] = ApplyPL(550, P, n, total_loads); % Construct load vector
 [SFD_PL, BMD_PL, total_loads] = ApplyPL(L, P, n, total_loads); % Construct load vector
 %% 1.1 Train Load
-n = 1251;                   % Number of locations to evaluate bridge failure
-L = 1250;                   % Length of bridge
-x = linspace(0, L, n);      % Define x coordinate
-total_loads = zeros(1, n);  % Initialize total_loads for SFD(x)
-y_zero = zeros(1,n);        % Initialize y-axis
-
-P = -400;
-P_each = P/6;
-for n = 52:1250
-    x0=n;
-    x_load = [x0,x0+176,x0+340,x0+516,x0+680,x0+856];
-    for i=1:6
-        if x_load(i)<=1250
-            [SFD_TL, BMD_TL, total_loads] = ApplyPL(x_load(i), P_each, n, total_loads);
-        end
-    end
-subplot(2,1,1);
-plot(x, SFD_TL,'red')
-plot(x, SFD_PL, 'green') % Plot point load SFD on same graph
-hold on
-subplot(2,1,2);
-plot(x, BMD_TL,'blue')
-plot(x, BMD_PL, 'green') % Plot point load BMD on same graph
-set(gca,'YDir','reverse')
-hold on
-SFD_PL = zeros(1,1251);
-BMD_PL = zeros(1,1251);
-total_loads = zeros(1,1251);
-end
+% n = 1251;                   % Number of locations to evaluate bridge failure
+% L = 1250;                   % Length of bridge
+% x = linspace(0, L, n);      % Define x coordinate
+% total_loads = zeros(1, n);  % Initialize total_loads for SFD(x)
+% y_zero = zeros(1,n);        % Initialize y-axis
+% 
+% P = -400;
+% P_each = P/6;
+% for n = 52:1250
+%     x0=n;
+%     x_load = [x0,x0+176,x0+340,x0+516,x0+680,x0+856];
+%     for i=1:6
+%         if x_load(i)<=1250
+%             [SFD_TL, BMD_TL, total_loads] = ApplyPL(x_load(i), P_each, n, total_loads);
+%         end
+%     end
+% subplot(2,1,1);
+% plot(x, SFD_TL,'red')
+% plot(x, SFD_PL, 'green') % Plot point load SFD on same graph
+% hold on
+% subplot(2,1,2);
+% plot(x, BMD_TL,'blue')
+% plot(x, BMD_PL, 'green') % Plot point load BMD on same graph
+% set(gca,'YDir','reverse')
+% hold on
+% SFD_PL = zeros(1,1251);
+% BMD_PL = zeros(1,1251);
+% total_loads = zeros(1,1251);
+% end
 %% 2. Define Cross-Sections
 % Parameters for left half before drastic change (?)
 xc = [0 550 L]; % Location, x, of cross-section change
@@ -53,7 +53,7 @@ a = [30 520 30 480 30 160 30]; % Diaphragm Spacing
 % Optional but you need to ensure that your geometric inputs are correctly implemented
 % VisualizeBridge( {CrossSectionInputs} ); 
 %% 2.1 Calculate Cross-Sectional Properties
-[ybar, I, Q] = SectionProperties (x, n, xc, tfb, tft, wh, wt, bfb, bft, gtb, gtt, a)
+[ybot, ytop, I, Qcent, Qglue] = SectionProperties (x, n, xc, tfb, tft, wh, wt, bfb, bft, gtb, gtt, a)
 %% 3. Define Material Properties
 SigT = 30;  % Tensile strength
 SigC = 6;   % Compressive strength
@@ -61,6 +61,10 @@ E = 4000;
 TauU = 4;   % Shear strength, matboard
 TauG = 2;   % Shear strength, glue
 mu = 0.2;   % Poisson's ratio
+%% 4. Calculate Failure Moments and Shear Forces
+M_MatT = MfailMatT( x, ytop, ybot, I, SigT, BMD_PL )
+M_MatC = MfailMatC( x, ybot, ytop, I, SigC, BMD_PL )
+V_Fail = Vfail( Qcent, 2*wt, I, TauU )
 
 %% Function Definitions
 function [ SFD_PL, BMD_PL, total_loads ] = ApplyPL( xP, P, n, total_loads )
@@ -92,7 +96,7 @@ SFD_PL(1) = total_loads(1);
     BMD_PL = cumsum(SFD_PL);
 end
 
-function [ ybar, I, Q ] = SectionProperties ( x, n, xc, tfb, tft, wh, wt, bfb, bft, gtb, gtt, a )
+function [ ybot, ytop, I, Qcent, Qglue ] = SectionProperties ( x, n, xc, tfb, tft, wh, wt, bfb, bft, gtb, gtt, a )
 % Calculates important sectional properties for left half . Including but not limited to ybar, I, Q, etc.
 % Input: Geometric Inputs. Format will depend on user
 % Output: Sectional Properties at every value of x. Each property is a 1-D array of length n
@@ -116,19 +120,25 @@ wa = zeros(1, n);
 gta = zeros(1, n);
 
 % Initialize I_0
-tfi = zeros(1, n);
-bfi = zeros(1, n);
-wi = zeros(1, n);
-gti = zeros(1, n);
+tfI = zeros(1, n);
+bfI = zeros(1, n);
+wI = zeros(1, n);
+gtI = zeros(1, n);
 
-tfisum = zeros(1, n);
-bfisum = zeros(1, n);
-wisum = zeros(1, n);
-gtisum = zeros(1, n);
+tfIsum = zeros(1, n);
+bfIsum = zeros(1, n);
+wIsum = zeros(1, n);
+gtIsum = zeros(1, n);
 
 % Initialize ybar, I
-ybar = zeros(1, n);
+ybot = zeros(1, n);
+ytop = zeros(1, n);
 I = zeros(1, n);
+
+% Initialize Q sum value(s), Qcent, Qglue
+wQ = zeros(1, n);
+Qcent = zeros(1, n);
+Qglue = zeros(1, n);
 
 for i = 1:length(x)
     % Areas, A
@@ -144,22 +154,71 @@ for i = 1:length(x)
     gty = ovheight(i) - tft(i) - (gtt ./ 2);
 
     % Global centroid, ybar
-    ybar(i) = (tfa(i) * tfy(i) + bfa(i) * bfy(i) + wa(i) * wy(i) + gta(i) * gty(i)) / (tfa(i) + bfa(i) + wa(i) + gta(i));
+    ybot(i) = (tfa(i) * tfy(i) + bfa(i) * bfy(i) + wa(i) * wy(i) + gta(i) * gty(i)) / (tfa(i) + bfa(i) + wa(i) + gta(i));
+    ytop(i) = abs(ybot(i) - ovheight(i));
     
     % I naught, I_0
-    tfi(i) = (tfb(i) * (tft(i)^3)) / 12;
-    bfi(i) = (bfb(i) * (bft(i)^3)) / 12;
-    wi(i) = 2 * (wt(i) * (wh(i)^3)) / 12;
-    gti(i) = 2 * (gtb(i) * (gtt(i)^3)) / 12;
+    tfI(i) = (tfb(i) * (tft(i)^3)) / 12;
+    bfI(i) = (bfb(i) * (bft(i)^3)) / 12;
+    wI(i) = 2 * (wt(i) * (wh(i)^3)) / 12;
+    gtI(i) = 2 * (gtb(i) * (gtt(i)^3)) / 12;
 
-    tfisum(i) = tfi(i) + tfa(i) * (abs(ybar(i) - tfy(i)))^2;
-    bfisum(i) = bfi(i) + bfa(i) * (abs(ybar(i) - bfy(i)))^2;
-    wisum(i) = wi(i) + wa(i) * (abs(ybar(i) - wy(i)))^2;
-    gtisum(i) = gti(i) + gta(i) * (abs(ybar(i) - gty(i)))^2;
+    tfIsum(i) = tfI(i) + tfa(i) * (abs(ybot(i) - tfy(i)))^2;
+    bfIsum(i) = bfI(i) + bfa(i) * (abs(ybot(i) - bfy(i)))^2;
+    wIsum(i) = wI(i) + wa(i) * (abs(ybot(i) - wy(i)))^2;
+    gtIsum(i) = gtI(i) + gta(i) * (abs(ybot(i) - gty(i)))^2;
 
     % Second moment of area, I
-    I(i) = tfisum(i) + bfisum(i) + wisum(i) + gtisum(i);
+    I(i) = tfIsum(i) + bfIsum(i) + wIsum(i) + gtIsum(i);
+
+    % First moment of area, Q (Qcent & Qglue)
+    wQ(i) = (2 * wt(i) * (ybot(i)-bft(i))) * ((ybot(i)-bft(i)) / 2);
+    Qcent(i) = bfa(i) * (ybot(i)-(bft(i)/2)) + wQ(i);
+    Qglue(i) = tfa(i) * (ovheight(i) - ybot(i) - tft(i) / 2);
+end
+end
+
+function [ V_Fail ] = Vfail( Qcent, b, I, TauU)
+% Calculates shear forces at every value of x that would cause a matboard shear failure
+% Input: Sectional Properties (list of 1-D arrays), TauU (scalar material property)
+% Output: V_fail a 1-D array of length n
+    
+    V_Fail = TauU .* I .* b ./ Qcent;
 
 end
-Q = 0;
+
+function [ M_MatT ] = MfailMatT( x, ybot, ytop, I, SigT, BMD )
+% Calculates bending moments at every value of x that would cause a matboard tension failure
+% Input: Sectional Properties (list of 1-D arrays), SigT (material property), BMD (1-D array)
+% Output: M_MatT (1-D array of length n)
+M_MatT = zeros(1, length(x));
+
+for i = 1:length(x)
+    if BMD(i) > 0 % If moment is (+), tension failure will be at the bottom
+        M_MatT(i) = SigT * I(i) / ybot(i);
+    elseif BMD(i) < 0 % If moment is (-), tension failure will be at the top
+        M_MatT(i) = -SigT * I(i) / ytop(i);
+    end
+end
+end
+
+function [ M_MatC ] = MfailMatC( x, ybot, ytop, I, SigC, BMD )
+% Calculates bending moments at every value of x that would cause a matboard compression failure
+% Input: Sectional Properties (list of 1-D arrays), SigC (material property), BMD (1-D array)
+% Output: M_MatT (1-D array of length n)
+M_MatC = zeros(1, length(x));
+
+for i = 1:length(x)
+    if BMD(i) > 0 % If moment is (+), compression failure will be at the top
+        M_MatC(i) = SigC * I(i) / ytop(i);
+    elseif BMD(i) < 0 % If moment is (-), compression failure will be at the bottom
+        M_MatC(i) = -SigC * I(i) / ybot(i);
+    end
+end
+end
+
+function [ M_Buck ] = MfailBuck (E, mu, BMD)
+% Calculates bending moments at every value of x that would cause a buckling failure
+% Input: Sectional Properties (list of 1-D arrays), E, mu (material property), BMD (1-D array)
+% Output: M_MatBuck (1-D array of length n)
 end
